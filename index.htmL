@@ -1,10 +1,13 @@
-```html
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AeroTrack - Pilot Doc System</title>
+    
+    <!-- PWA Manifest Injection (Makes it installable for PWABuilder) -->
+    <link rel="manifest" id="manifest-link">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script>
@@ -140,6 +143,35 @@
     </div>
 
     <script>
+        // PWA Setup Script
+        const manifest = {
+            "name": "AeroTrack Pilot System",
+            "short_name": "AeroTrack",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#111827",
+            "theme_color": "#1e40af",
+            "icons": [{
+                "src": "https://cdn-icons-png.flaticon.com/512/782/782071.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }]
+        };
+        const manifestString = JSON.stringify(manifest);
+        document.getElementById('manifest-link').setAttribute('href', 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestString));
+
+        // Basic Service Worker (Required for PWA Installability)
+        const swCode = `
+            self.addEventListener('install', (e) => self.skipWaiting());
+            self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+            self.addEventListener('fetch', (e) => {});
+        `;
+        const blob = new Blob([swCode], { type: 'text/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register(swUrl).catch(console.error);
+        }
+
         async function handleScan(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -162,8 +194,9 @@
                 
                 // Priority Logic
                 let detectedName = null;
-                if (textUpper.includes("MEDICAL") || textUpper.includes("CLASS-1") || textUpper.includes("CLASS 1")) detectedName = "Class 1 Medical";
+                if (textUpper.includes("CLASS-1") || textUpper.includes("CLASS 1")) detectedName = "Class 1 Medical";
                 else if (textUpper.includes("CLASS-2") || textUpper.includes("CLASS 2")) detectedName = "Class 2 Medical";
+                else if (textUpper.includes("MEDICAL")) detectedName = "Class 1 Medical";
                 else if (textUpper.includes("RADIO TELEPHONY RESTRICTED") || textUpper.includes("RTR")) detectedName = "RTR(A)";
                 else if (textUpper.includes("FLIGHT RADIO TELEPHONY") || textUpper.includes("FRTOL")) detectedName = "FRTOL";
                 else if (textUpper.includes("LANGUAGE PROFICIENCY") || textUpper.includes("ELP") || textUpper.includes("LANGUAGE ASSESSMENT")) detectedName = "ELP (Language Proficiency)";
@@ -194,7 +227,12 @@
                 if (dates.length > 0) {
                     const now = new Date();
                     const ageLimit = new Date();
-                    ageLimit.setFullYear(ageLimit.getFullYear() - 15);
+                    
+                    if (detectedName === 'Passport') {
+                        ageLimit.setFullYear(ageLimit.getFullYear() - 15);
+                    } else {
+                        ageLimit.setFullYear(ageLimit.getFullYear() - 10);
+                    }
                     
                     const validDates = dates.filter(d => d > ageLimit);
 
@@ -217,7 +255,7 @@
                                     document.getElementById('expiry-date').value = calcExpiry.toISOString().split('T')[0];
                                 }
                             } else if (detectedName === 'ELP (Language Proficiency)') {
-                                const levelMatch = textUpper.match(/LEVEL[\s\S]{0,25}?([456])/);
+                                const levelMatch = text.match(/Level.{0,25}?([456])/i);
                                 if (levelMatch) {
                                     let level = parseInt(levelMatch[1]);
                                     let calcExpiry = new Date(validDates[0]);
@@ -261,6 +299,7 @@
                         }
                         
                         showToast("Dates & Info successfully extracted!", "bg-green-600");
+                        autoCalculateExpiry();
                     } else {
                         showError("Found dates, but they seem too old (like a DOB). Please enter manually.");
                     }
@@ -281,7 +320,6 @@
             const docName = document.getElementById('doc-name-select').value;
             const issueDateStr = document.getElementById('issue-date').value;
             
-            // Only calculate if user actually entered an Issue Date
             if (!issueDateStr) return;
 
             let issueDate = new Date(issueDateStr);
@@ -290,39 +328,4 @@
             let remarksField = document.getElementById('doc-remarks');
 
             switch(docName) {
-                case 'Class 1 Medical':
-                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 1);
-                    break;
-                case 'Class 2 Medical':
-                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 2);
-                    break;
-                case 'SPL (Student Pilot License)':
-                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 5);
-                    break;
-                case 'PPL (Private Pilot License)':
-                case 'CPL (Commercial Pilot License)':
-                case 'FRTOL':
-                case 'Passport':
-                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 10);
-                    break;
-                case 'RTR(A)':
-                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 20);
-                    if (!remarksField.value) remarksField.value = "Assumed 20 Years. Change if Lifetime.";
-                    break;
-                case 'ELP (Language Proficiency)':
-                    // Prevent overwriting OCR if OCR already set the remarks
-                    if(!remarksField.value.includes("Level")) {
-                        calcExpiry.setFullYear(calcExpiry.getFullYear() + 3);
-                        remarksField.value = "Assumed Level 4 (3 Years). Change if needed.";
-                    } else {
-                        validUpdate = false; 
-                    }
-                    break;
-                default:
-                    validUpdate = false;
-            }
-
-            if (validUpdate) {
-                calcExpiry.setDate(calcExpiry.getDate() - 1); 
-                
-                con
+                ca
