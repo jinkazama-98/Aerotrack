@@ -1,0 +1,328 @@
+```html
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroTrack - Pilot Doc System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', 
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        .toast-enter {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 pb-20 transition-colors duration-300">
+
+    <nav class="bg-blue-800 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-tight"><i class="fa-solid fa-plane-departure mr-2"></i>AeroTrack</h1>
+            <div class="flex items-center gap-3">
+                <span class="text-xs bg-blue-700 px-2 py-1 rounded-full border border-blue-600 shadow-sm">Student Pilot</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-md mx-auto p-4 space-y-6">
+        
+        <section class="grid grid-cols-2 gap-3">
+            <div class="bg-gray-800 p-3 rounded-2xl shadow-sm border border-gray-700 flex flex-col justify-center items-center text-center">
+                <span class="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Total Docs</span>
+                <span id="total-docs" class="text-3xl font-bold text-gray-100">0</span>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-2xl shadow-sm border border-gray-700 flex flex-col justify-center items-center text-center">
+                <span class="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Needs Action</span>
+                <span id="needs-action" class="text-3xl font-bold text-orange-400">0</span>
+            </div>
+        </section>
+
+        <section class="bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="form-title" class="text-lg font-bold flex items-center text-gray-100"><i class="fa-solid fa-plus-circle text-blue-400 mr-2"></i>Add Document</h2>
+                
+                <button type="button" id="scan-btn" onclick="document.getElementById('scan-input').click()" class="bg-indigo-900/60 text-indigo-300 text-xs font-bold py-2 px-3 rounded-lg flex items-center shadow-sm hover:bg-indigo-800 transition-colors">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Auto-Fill
+                </button>
+                <input type="file" id="scan-input" accept="image/*" class="hidden" onchange="handleScan(event)">
+            </div>
+            
+            <div id="error-message" class="hidden mb-3 p-3 bg-red-900/50 text-red-300 text-sm rounded-xl border border-red-800"></div>
+
+            <form id="add-doc-form" class="space-y-4">
+                <input type="hidden" id="edit-doc-id" value="">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Document Name</label>
+                    <select id="doc-name-select" class="w-full border border-gray-600 rounded-xl p-3 bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                        <option value="Class 1 Medical">Class 1 Medical</option>
+                        <option value="Class 2 Medical">Class 2 Medical</option>
+                        <option value="SPL (Student Pilot License)">SPL (Student Pilot License)</option>
+                        <option value="PPL (Private Pilot License)">PPL (Private Pilot License)</option>
+                        <option value="CPL (Commercial Pilot License)">CPL (Commercial Pilot License)</option>
+                        <option value="RTR(A)">RTR(A)</option>
+                        <option value="FRTOL">FRTOL</option>
+                        <option value="ELP (Language Proficiency)">ELP (Language Proficiency)</option>
+                        <option value="Passport">Passport</option>
+                        <option value="Police Verification">Police Verification</option>
+                        <option value="Other">Other (Type below)</option>
+                    </select>
+                </div>
+                
+                <div id="custom-doc-container" class="hidden">
+                    <input type="text" id="doc-name" placeholder="Enter custom document name" class="w-full border border-gray-600 rounded-xl p-3 bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Issue Date</label>
+                        <input type="date" id="issue-date" class="w-full border border-gray-600 rounded-xl p-3 bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Expiry Date</label>
+                        <input type="date" id="expiry-date" class="w-full border border-gray-600 rounded-xl p-3 bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-1">
+                        Remarks <span class="text-xs text-gray-400 font-normal">(Optional)</span>
+                    </label>
+                    <textarea id="doc-remarks" rows="2" placeholder="e.g., Dr. Sharma - 555-0192" class="w-full border border-gray-600 rounded-xl p-3 bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="button" id="cancel-edit-btn" onclick="cancelEdit()" class="hidden w-1/3 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all justify-center items-center">
+                        Cancel
+                    </button>
+                    <button type="button" id="submit-doc-btn" onclick="handleAddDocument()" class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex justify-center items-center">
+                        <i id="submit-icon" class="fa-solid fa-save mr-2"></i> <span id="submit-text">Save to Wallet</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section>
+            <h2 class="text-lg font-bold mb-4 ml-1 flex items-center text-gray-100"><i class="fa-solid fa-wallet text-gray-400 mr-2"></i>My Document Wallet</h2>
+            <div id="document-list" class="space-y-4"></div>
+            
+            <div id="empty-state" class="hidden text-center py-10 bg-gray-800 rounded-2xl border border-dashed border-gray-700">
+                <i class="fa-solid fa-folder-open text-gray-600 text-4xl mb-3"></i>
+                <p class="text-gray-400 font-medium">Your wallet is empty.</p>
+                <p class="text-gray-500 text-sm">Add a document above to start tracking.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg font-semibold text-sm hidden z-[100] whitespace-nowrap">
+        Action successful!
+    </div>
+
+    <script>
+        async function handleScan(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('error-message').classList.add('hidden');
+
+            showToast("Analyzing document... Please wait.", "bg-indigo-600");
+            const btn = document.getElementById('scan-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Scanning...';
+            btn.disabled = true;
+
+            try {
+                const worker = await Tesseract.createWorker('eng');
+                const ret = await worker.recognize(file);
+                await worker.terminate();
+                
+                const text = ret.data.text;
+                const textUpper = text.toUpperCase();
+                
+                // Priority Logic
+                let detectedName = null;
+                if (textUpper.includes("MEDICAL") || textUpper.includes("CLASS-1") || textUpper.includes("CLASS 1")) detectedName = "Class 1 Medical";
+                else if (textUpper.includes("CLASS-2") || textUpper.includes("CLASS 2")) detectedName = "Class 2 Medical";
+                else if (textUpper.includes("RADIO TELEPHONY RESTRICTED") || textUpper.includes("RTR")) detectedName = "RTR(A)";
+                else if (textUpper.includes("FLIGHT RADIO TELEPHONY") || textUpper.includes("FRTOL")) detectedName = "FRTOL";
+                else if (textUpper.includes("LANGUAGE PROFICIENCY") || textUpper.includes("ELP") || textUpper.includes("LANGUAGE ASSESSMENT")) detectedName = "ELP (Language Proficiency)";
+                else if (textUpper.includes("PASSPORT")) detectedName = "Passport";
+                else if (textUpper.includes("COMMERCIAL PILOT") || textUpper.includes("CPL")) detectedName = "CPL (Commercial Pilot License)";
+                else if (textUpper.includes("PRIVATE PILOT") || textUpper.includes("PPL") || textUpper.includes("PRIVATE PILOT LICENCE")) detectedName = "PPL (Private Pilot License)";
+                else if (textUpper.includes("STUDENT PILOT") || textUpper.includes("SPL")) detectedName = "SPL (Student Pilot License)";
+
+                if (detectedName) {
+                    document.getElementById('doc-name-select').value = detectedName;
+                    document.getElementById('custom-doc-container').classList.add('hidden');
+                }
+                
+                const regex = /(\d{1,2})[\s\-\/\.,]+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|0?[1-9]|1[0-2])[\s\-\/\.,]+(\d{4})/gi;
+                let match;
+                const dates = [];
+                const months = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+
+                while ((match = regex.exec(text)) !== null) {
+                    let day = match[1].padStart(2, '0');
+                    let monthStr = match[2].toLowerCase();
+                    let month = months[monthStr] ? months[monthStr] : monthStr.padStart(2, '0');
+                    let year = match[3];
+                    let parsedDate = new Date(`${year}-${month}-${day}`);
+                    if (!isNaN(parsedDate)) dates.push(parsedDate);
+                }
+
+                if (dates.length > 0) {
+                    const now = new Date();
+                    const ageLimit = new Date();
+                    ageLimit.setFullYear(ageLimit.getFullYear() - 15);
+                    
+                    const validDates = dates.filter(d => d > ageLimit);
+
+                    if (validDates.length > 0) {
+                        validDates.sort((a, b) => a - b);
+                        
+                        if (validDates.length === 1) {
+                            if (detectedName === 'Passport') {
+                                if (validDates[0] > now) {
+                                    let calcIssue = new Date(validDates[0]);
+                                    calcIssue.setFullYear(calcIssue.getFullYear() - 10);
+                                    calcIssue.setDate(calcIssue.getDate() + 1);
+                                    document.getElementById('expiry-date').value = validDates[0].toISOString().split('T')[0];
+                                    document.getElementById('issue-date').value = calcIssue.toISOString().split('T')[0];
+                                } else {
+                                    let calcExpiry = new Date(validDates[0]);
+                                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 10);
+                                    calcExpiry.setDate(calcExpiry.getDate() - 1);
+                                    document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
+                                    document.getElementById('expiry-date').value = calcExpiry.toISOString().split('T')[0];
+                                }
+                            } else if (detectedName === 'ELP (Language Proficiency)') {
+                                const levelMatch = textUpper.match(/LEVEL[\s\S]{0,25}?([456])/);
+                                if (levelMatch) {
+                                    let level = parseInt(levelMatch[1]);
+                                    let calcExpiry = new Date(validDates[0]);
+                                    
+                                    if (level === 4) {
+                                        calcExpiry.setFullYear(calcExpiry.getFullYear() + 3);
+                                        calcExpiry.setDate(calcExpiry.getDate() - 1);
+                                        document.getElementById('doc-remarks').value = "Level 4 (3 Years Validity)";
+                                    } else if (level === 5) {
+                                        calcExpiry.setFullYear(calcExpiry.getFullYear() + 6);
+                                        calcExpiry.setDate(calcExpiry.getDate() - 1);
+                                        document.getElementById('doc-remarks').value = "Level 5 (6 Years Validity)";
+                                    } else if (level === 6) {
+                                        calcExpiry.setFullYear(calcExpiry.getFullYear() + 50); 
+                                        document.getElementById('doc-remarks').value = "Level 6 (Lifetime Validity)";
+                                    }
+                                    
+                                    if (validDates[0] > now) {
+                                        let calcIssue = new Date(validDates[0]);
+                                        if (level === 4) calcIssue.setFullYear(calcIssue.getFullYear() - 3);
+                                        if (level === 5) calcIssue.setFullYear(calcIssue.getFullYear() - 6);
+                                        if (level === 6) calcIssue.setFullYear(calcIssue.getFullYear() - 50);
+                                        calcIssue.setDate(calcIssue.getDate() + 1);
+                                        document.getElementById('expiry-date').value = validDates[0].toISOString().split('T')[0];
+                                        document.getElementById('issue-date').value = calcIssue.toISOString().split('T')[0];
+                                    } else {
+                                        document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
+                                        document.getElementById('expiry-date').value = calcExpiry.toISOString().split('T')[0];
+                                    }
+                                } else {
+                                    if (validDates[0] > now) document.getElementById('expiry-date').value = validDates[0].toISOString().split('T')[0];
+                                    else document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
+                                }
+                            } else {
+                                if (validDates[0] > now) document.getElementById('expiry-date').value = validDates[0].toISOString().split('T')[0];
+                                else document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
+                            }
+                        } else {
+                            document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
+                            document.getElementById('expiry-date').value = validDates[validDates.length - 1].toISOString().split('T')[0];
+                        }
+                        
+                        showToast("Dates & Info successfully extracted!", "bg-green-600");
+                    } else {
+                        showError("Found dates, but they seem too old (like a DOB). Please enter manually.");
+                    }
+                } else {
+                    showError("Could not detect any clear dates. Please enter them manually.");
+                }
+            } catch (error) {
+                showError("Scanning failed. Please try a clearer image.");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                event.target.value = ''; 
+            }
+        }
+
+        // --- DGCA Auto-Calculation Logic ---
+        function autoCalculateExpiry() {
+            const docName = document.getElementById('doc-name-select').value;
+            const issueDateStr = document.getElementById('issue-date').value;
+            
+            // Only calculate if user actually entered an Issue Date
+            if (!issueDateStr) return;
+
+            let issueDate = new Date(issueDateStr);
+            let calcExpiry = new Date(issueDate);
+            let validUpdate = true;
+            let remarksField = document.getElementById('doc-remarks');
+
+            switch(docName) {
+                case 'Class 1 Medical':
+                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 1);
+                    break;
+                case 'Class 2 Medical':
+                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 2);
+                    break;
+                case 'SPL (Student Pilot License)':
+                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 5);
+                    break;
+                case 'PPL (Private Pilot License)':
+                case 'CPL (Commercial Pilot License)':
+                case 'FRTOL':
+                case 'Passport':
+                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 10);
+                    break;
+                case 'RTR(A)':
+                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 20);
+                    if (!remarksField.value) remarksField.value = "Assumed 20 Years. Change if Lifetime.";
+                    break;
+                case 'ELP (Language Proficiency)':
+                    // Prevent overwriting OCR if OCR already set the remarks
+                    if(!remarksField.value.includes("Level")) {
+                        calcExpiry.setFullYear(calcExpiry.getFullYear() + 3);
+                        remarksField.value = "Assumed Level 4 (3 Years). Change if needed.";
+                    } else {
+                        validUpdate = false; 
+                    }
+                    break;
+                default:
+                    validUpdate = false;
+            }
+
+            if (validUpdate) {
+                calcExpiry.setDate(calcExpiry.getDate() - 1); 
+                
+                con
