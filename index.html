@@ -36,6 +36,17 @@
             to { transform: translateY(0); opacity: 1; }
         }
     </style>
+    
+    <script>
+        // Service Worker registration for PWA compliance (Needed for PWABuilder)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('ServiceWorker registered!', reg))
+                    .catch(err => console.log('ServiceWorker registration failed: ', err));
+            });
+        }
+    </script>
 </head>
 <body class="bg-gray-900 text-gray-100 pb-20 transition-colors duration-300">
 
@@ -144,15 +155,6 @@
     </div>
 
     <script>
-        // Service Worker registration for PWA compliance (Needed for PWABuilder)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('ServiceWorker registered!', reg))
-                    .catch(err => console.log('ServiceWorker registration failed: ', err));
-            });
-        }
-
         let documents = JSON.parse(localStorage.getItem('pilotDocuments')) || [];
 
         async function handleScan(event) {
@@ -333,4 +335,4 @@
                 
                 if (currentExpiry !== newExpiryStr) {
                     document.getElementById('expiry-date').value = newExpiryStr;
-                    showToast(`DGCA R
+      
