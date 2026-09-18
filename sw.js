@@ -1,19 +1,15 @@
 self.addEventListener('install', (e) => {
-    // Forces the waiting service worker to become the active service worker.
+    // Instantly activate this new worker
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
-    // Tells the active service worker to take control of the page immediately.
+    // Take over the page immediately
     e.waitUntil(clients.claim());
 });
 
 self.addEventListener('fetch', (e) => {
-    // FIX: Tell the Service Worker to IGNORE the AI's external CDN downloads
-    if (!e.request.url.startsWith(self.location.origin)) {
-        return;
-    }
-    
-    // Pass-through network fetching for local files only
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    // GHOST MODE: We let the browser handle 100% of the network requests normally.
+    // This stops the Service Worker from accidentally blocking the AI's files.
+    return;
 });
