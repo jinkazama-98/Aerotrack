@@ -9,6 +9,11 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-    // Pass-through network fetching for PWA compliance to pass the PWABuilder test.
+    // FIX: Tell the Service Worker to IGNORE the AI's external CDN downloads
+    if (!e.request.url.startsWith(self.location.origin)) {
+        return;
+    }
+    
+    // Pass-through network fetching for local files only
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });
