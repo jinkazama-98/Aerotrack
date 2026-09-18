@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -5,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AeroTrack - Pilot Doc System</title>
     
-    <!-- Standard PWA Manifest Link -->
+    <!-- This links to your manifest for PWA installation -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e40af">
     
@@ -138,23 +139,21 @@
 
     </main>
 
-    <!-- Notification Toast -->
     <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg font-semibold text-sm hidden z-[100] whitespace-nowrap">
         Action successful!
     </div>
 
     <script>
-        // Basic Service Worker (Required for PWA Installability)
-        const swCode = `
-            self.addEventListener('install', (e) => self.skipWaiting());
-            self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
-            self.addEventListener('fetch', (e) => {});
-        `;
-        const blob = new Blob([swCode], { type: 'text/javascript' });
-        const swUrl = URL.createObjectURL(blob);
+        // Service Worker registration for PWA compliance (Needed for PWABuilder)
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl).catch(console.error);
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('ServiceWorker registered!', reg))
+                    .catch(err => console.log('ServiceWorker registration failed: ', err));
+            });
         }
+
+        let documents = JSON.parse(localStorage.getItem('pilotDocuments')) || [];
 
         async function handleScan(event) {
             const file = event.target.files[0];
@@ -176,15 +175,14 @@
                 const text = ret.data.text;
                 const textUpper = text.toUpperCase();
                 
-                // Priority Logic
                 let detectedName = null;
-                if (textUpper.includes("CLASS-1") || textUpper.includes("CLASS 1")) detectedName = "Class 1 Medical";
+                // AI PRIORITY FIX: Medicals evaluated first
+                if (textUpper.includes("CLASS-1") || textUpper.includes("CLASS 1") || textUpper.includes("MEDICAL ASSESSMENT")) detectedName = "Class 1 Medical";
                 else if (textUpper.includes("CLASS-2") || textUpper.includes("CLASS 2")) detectedName = "Class 2 Medical";
-                else if (textUpper.includes("MEDICAL")) detectedName = "Class 1 Medical";
                 else if (textUpper.includes("RADIO TELEPHONY RESTRICTED") || textUpper.includes("RTR")) detectedName = "RTR(A)";
                 else if (textUpper.includes("FLIGHT RADIO TELEPHONY") || textUpper.includes("FRTOL")) detectedName = "FRTOL";
-                else if (textUpper.includes("LANGUAGE PROFICIENCY") || textUpper.includes("ELP") || textUpper.includes("LANGUAGE ASSESSMENT") || textUpper.includes("ENGLISH LANGUAGE")) detectedName = "ELP (Language Proficiency)";
-                else if (textUpper.includes("PASSPORT")) detectedName = "Passport";
+                else if (textUpper.includes("LANGUAGE PROFICIENCY") || textUpper.includes("ELP") || textUpper.includes("LANGUAGE ASSESSMENT") || textUpper.includes("ENGLISH LANGUAGE") || textUpper.includes("OPERATIONAL LEVEL")) detectedName = "ELP (Language Proficiency)";
+                else if (textUpper.includes("PASSPORT") || textUpper.includes("REPUBLIC OF INDIA")) detectedName = "Passport";
                 else if (textUpper.includes("COMMERCIAL PILOT") || textUpper.includes("CPL")) detectedName = "CPL (Commercial Pilot License)";
                 else if (textUpper.includes("PRIVATE PILOT") || textUpper.includes("PPL") || textUpper.includes("PRIVATE PILOT LICENCE")) detectedName = "PPL (Private Pilot License)";
                 else if (textUpper.includes("STUDENT PILOT") || textUpper.includes("SPL")) detectedName = "SPL (Student Pilot License)";
@@ -212,12 +210,8 @@
                     const now = new Date();
                     const ageLimit = new Date();
                     
-                    if (detectedName === 'Passport') {
-                        ageLimit.setFullYear(ageLimit.getFullYear() - 15);
-                    } else {
-                        ageLimit.setFullYear(ageLimit.getFullYear() - 10);
-                    }
-                    
+                    // PASSPORT FILTER FIX: Allow dates up to 15 years old
+                    ageLimit.setFullYear(ageLimit.getFullYear() - 15);
                     const validDates = dates.filter(d => d > ageLimit);
 
                     if (validDates.length > 0) {
@@ -225,6 +219,7 @@
                         
                         if (validDates.length === 1) {
                             if (detectedName === 'Passport') {
+                                // Passport exactly 10 years rule
                                 if (validDates[0] > now) {
                                     let calcIssue = new Date(validDates[0]);
                                     calcIssue.setFullYear(calcIssue.getFullYear() - 10);
@@ -239,54 +234,42 @@
                                     document.getElementById('expiry-date').value = calcExpiry.toISOString().split('T')[0];
                                 }
                             } else if (detectedName === 'ELP (Language Proficiency)') {
-                                // Smarter ELP Level Matcher
-                                const levelMatch = text.match(/Level.{0,25}?([456])/i);
-                                if (levelMatch) {
-                                    let level = parseInt(levelMatch[1]);
-                                    let calcExpiry = new Date(validDates[0]);
-                                    
-                                    if (level === 4) {
-                                        calcExpiry.setFullYear(calcExpiry.getFullYear() + 3);
-                                        calcExpiry.setDate(calcExpiry.getDate() - 1);
-                                        document.getElementById('doc-remarks').value = "Level 4 (3 Years Validity)";
-                                    } else if (level === 5) {
-                                        calcExpiry.setFullYear(calcExpiry.getFullYear() + 6);
-                                        calcExpiry.setDate(calcExpiry.getDate() - 1);
-                                        document.getElementById('doc-remarks').value = "Level 5 (6 Years Validity)";
-                                    } else if (level === 6) {
-                                        calcExpiry.setFullYear(calcExpiry.getFullYear() + 50); 
-                                        document.getElementById('doc-remarks').value = "Level 6 (Lifetime Validity)";
-                                    }
-                                    
-                                    if (validDates[0] > now) {
-                                        let calcIssue = new Date(validDates[0]);
-                                        if (level === 4) calcIssue.setFullYear(calcIssue.getFullYear() - 3);
-                                        if (level === 5) calcIssue.setFullYear(calcIssue.getFullYear() - 6);
-                                        if (level === 6) calcIssue.setFullYear(calcIssue.getFullYear() - 50);
-                                        calcIssue.setDate(calcIssue.getDate() + 1);
-                                        document.getElementById('expiry-date').value = validDates[0].toISOString().split('T')[0];
-                                        document.getElementById('issue-date').value = calcIssue.toISOString().split('T')[0];
-                                    } else {
-                                        document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
-                                        document.getElementById('expiry-date').value = calcExpiry.toISOString().split('T')[0];
-                                    }
-                                } else {
-                                    if (validDates[0] > now) document.getElementById('expiry-date').value = validDates[0].toISOString().split('T')[0];
-                                    else document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
+                                // SMART ELP REGEX: Look for level over a larger string span
+                                const levelMatch = text.match(/level.{0,25}?([456])/i);
+                                let level = 4; 
+                                if (levelMatch) level = parseInt(levelMatch[1]);
+                                
+                                let calcExpiry = new Date(validDates[0]);
+                                if (level === 4) {
+                                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 3);
+                                    calcExpiry.setDate(calcExpiry.getDate() - 1);
+                                    document.getElementById('doc-remarks').value = "Level 4 (3 Years Validity)";
+                                } else if (level === 5) {
+                                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 6);
+                                    calcExpiry.setDate(calcExpiry.getDate() - 1);
+                                    document.getElementById('doc-remarks').value = "Level 5 (6 Years Validity)";
+                                } else if (level === 6) {
+                                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 50);
+                                    document.getElementById('doc-remarks').value = "Level 6 (Lifetime Validity)";
                                 }
+                                
+                                document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
+                                document.getElementById('expiry-date').value = calcExpiry.toISOString().split('T')[0];
                             } else {
                                 if (validDates[0] > now) document.getElementById('expiry-date').value = validDates[0].toISOString().split('T')[0];
                                 else document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
+                                autoCalculateExpiry();
                             }
                         } else {
+                            // Standard scenario: Two dates found
                             document.getElementById('issue-date').value = validDates[0].toISOString().split('T')[0];
                             document.getElementById('expiry-date').value = validDates[validDates.length - 1].toISOString().split('T')[0];
                         }
                         
                         showToast("Dates & Info successfully extracted!", "bg-green-600");
-                        autoCalculateExpiry(); // Run auto-calculation rule check
+                        autoCalculateExpiry();
                     } else {
-                        showError("Found dates, but they seem too old (like a DOB). Please enter manually.");
+                        showError("Found dates, but they seem too old. Please enter manually.");
                     }
                 } else {
                     showError("Could not detect any clear dates. Please enter them manually.");
@@ -300,7 +283,6 @@
             }
         }
 
-        // --- DGCA Auto-Calculation Logic ---
         function autoCalculateExpiry() {
             const docName = document.getElementById('doc-name-select').value;
             const issueDateStr = document.getElementById('issue-date').value;
@@ -324,4 +306,31 @@
                     break;
                 case 'PPL (Private Pilot License)':
                 case 'CPL (Commercial Pilot License)':
-                case 'FRTOL
+                case 'FRTOL':
+                case 'Passport':
+                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 10);
+                    break;
+                case 'RTR(A)':
+                    calcExpiry.setFullYear(calcExpiry.getFullYear() + 20);
+                    if (!remarksField.value) remarksField.value = "Assumed 20 Years. Change if Lifetime.";
+                    break;
+                case 'ELP (Language Proficiency)':
+                    if(!remarksField.value.includes("Level")) {
+                        calcExpiry.setFullYear(calcExpiry.getFullYear() + 3);
+                        remarksField.value = "Assumed Level 4 (3 Years). Change if needed.";
+                    } else {
+                        validUpdate = false; 
+                    }
+                    break;
+                default:
+                    validUpdate = false;
+            }
+
+            if (validUpdate) {
+                calcExpiry.setDate(calcExpiry.getDate() - 1); 
+                const newExpiryStr = calcExpiry.toISOString().split('T')[0];
+                const currentExpiry = document.getElementById('expiry-date').value;
+                
+                if (currentExpiry !== newExpiryStr) {
+                    document.getElementById('expiry-date').value = newExpiryStr;
+                    showToast(`DGCA R
